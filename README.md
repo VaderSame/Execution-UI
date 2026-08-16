@@ -1,32 +1,43 @@
-# React + TypeScript + Vite
+# Execution UI
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+The official frontend for the **Execution Agent**. This React application provides a rich, real-time Human-in-the-Loop (HITL) interface to interact with autonomous AI agents running on the backend. 
 
-Currently, two official plugins are available:
+It connects to the Execution Agent backend via Server-Sent Events (SSE) to display live streaming logs, terminal output, and tool invocations while agents explore, debug, and execute python repositories in a Docker sandbox.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Features
+- **Live Stream Transcript**: Watch the agent think and act in real-time, rendered with Markdown and robust syntax highlighting for code payloads.
+- **Repository Explorer**: Browse files and folders of the active code repository inside the sandbox.
+- **Unified Sandbox Terminal**: See the live `stdout`/`stderr` from the Docker sandbox executed by the agent.
+- **Interactive File Viewer**: Click any file in the repository explorer to view its contents side-by-side with the agent transcript.
+- **Responsive Layout**: Resizable panes to manage screen real-estate between the agent logs, file tree, and code viewer.
 
-## React Compiler
+## Technology Stack
+- **React 19**
+- **Vite 8**
+- **Tailwind CSS v4** (with Typography plugin)
+- **TypeScript**
+- **React Markdown** & **React Syntax Highlighter**
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Prerequisites
+- Node.js (v18 or higher recommended)
+- The [Execution Agent Backend](../Execution%20Agent) must be running locally on port 8000 to process jobs and stream events.
 
-## Expanding the Oxlint configuration
+## Installation
+1. Clone the repository and navigate into the `Execution UI` directory.
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Running the Application
+1. **Start the Backend**: Ensure the Execution Agent backend is running:
+   ```bash
+   # From the Execution Agent directory
+   uvicorn server:app --port 8000 --reload
+   ```
+2. **Start the UI**: Run the Vite development server:
+   ```bash
+   npm run dev
+   ```
+3. Open your browser to `http://localhost:5173`.
+4. Select a repository from the Repo Picker, type your instruction, and hit **Run**!
