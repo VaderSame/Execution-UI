@@ -16,3 +16,14 @@ export async function createJob(repoName: string, instruction: string, chatSessi
   });
   return data.job_id;
 }
+
+export async function approveJob(jobId: string, approved: boolean, feedback: string = ""): Promise<boolean> {
+  const data = await fetchApi<{ status: string }>(`/execution-jobs/${encodeURIComponent(jobId)}/approval`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ approved, feedback }),
+  });
+  return data.status === "resumed";
+}

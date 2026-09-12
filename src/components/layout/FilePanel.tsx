@@ -1,25 +1,28 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRepoTree } from "../../hooks/useRepoTree";
 import type { RepoNode } from "../../api/types";
-import { getRepoFile } from "../../api/repos";
+import { CodeEditor } from "./CodeEditor";
 
-function FileTreeNode({ node, onSelectFile }: { node: RepoNode; onSelectFile: (path: string) => void }) {
+function FileTreeNode({ node, onSelectFile, selectedPath }: { node: RepoNode; onSelectFile: (path: string) => void; selectedPath: string | null }) {
   const [expanded, setExpanded] = useState(false);
+
+  const isSelected = selectedPath === node.path;
 
   if (node.type === "directory") {
     return (
       <div className="ml-2">
-        <button
-          className="flex items-center text-sm py-1 px-2 w-full text-left hover:bg-gray-800 rounded text-gray-300"
+        <div 
+          className="flex items-center cursor-pointer text-gray-400 hover:text-gray-200 py-1 px-2 rounded hover:bg-gray-800/50 transition-colors"
           onClick={() => setExpanded(!expanded)}
         >
-          <span className="w-4 inline-block text-center text-gray-500 font-mono text-xs">{expanded ? "v" : ">"}</span>
-          <span className="ml-1 truncate">{node.name}</span>
-        </button>
+          <span className="w-4 text-center mr-1 text-xs">{expanded ? "▾" : "▸"}</span>
+          <span className="text-yellow-600/80 mr-2 text-sm">📁</span>
+          <span className="text-sm truncate">{node.name}</span>
+        </div>
         {expanded && node.children && (
-          <div className="border-l border-gray-800 ml-3">
+          <div className="border-l border-gray-800/60 ml-2">
             {node.children.map((child) => (
-              <FileTreeNode key={child.path} node={child} onSelectFile={onSelectFile} />
+              <FileTreeNode key={child.path} node={child} onSelectFile={onSelectFile} selectedPath={selectedPath} />
             ))}
           </div>
         )}
@@ -28,41 +31,32 @@ function FileTreeNode({ node, onSelectFile }: { node: RepoNode; onSelectFile: (p
   }
 
   return (
-    <div className="ml-2">
-      <button
-        className="flex items-center text-sm py-1 px-2 w-full text-left hover:bg-gray-800 rounded text-gray-400"
-        onClick={() => onSelectFile(node.path)}
-      >
-        <span className="w-4 inline-block"></span>
-        <span className="ml-1 truncate">{node.name}</span>
-      </button>
+    <div 
+      className={`ml-2 flex items-center cursor-pointer py-1 px-2 rounded transition-colors ${
+        isSelected ? "bg-blue-900/30 text-blue-300" : "text-gray-500 hover:text-gray-300 hover:bg-gray-800/50"
+      }`}
+      onClick={() => onSelectFile(node.path)}
+    >
+      <span className="w-4 mr-1"></span>
+      <span className="text-blue-400/70 mr-2 text-sm">📄</span>
+      <span className="text-sm truncate">{node.name}</span>
     </div>
   );
 }
 
-export function FilePanel({ repoName }: { repoName: string | null }) {
-  const { tree, loading, error } = useRepoTree(repoName);
-  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
-  const [fileContent, setFileContent] = useState<string | null>(null);
-  const [fileLoading, setFileLoading] = useState(false);
+interface Props {
+  repoName: string | null;
+  selectedFilePath: string | null;
+  onSelectFile: (path: string | null) => void;
+  refreshTrigger?: number;
+}
 
-  useEffect(() => {
-    setSelectedFilePath(null);
-    setFileContent(null);
-  }, [repoName]);
-
-  useEffect(() => {
-    if (!selectedFilePath || !repoName) return;
-    setFileLoading(true);
-    getRepoFile(repoName, selectedFilePath)
-      .then(setFileContent)
-      .catch((err) => setFileContent(`Error loading file: ${err.message}`))
-      .finally(() => setFileLoading(false));
-  }, [selectedFilePath, repoName]);
+export function FilePanel({ repoName, selectedFilePath, onSelectFile, refreshTrigger = 0 }: Props) {
+  const { tree, loading, error } = useRepoTree(repoName, refreshTrigger);
 
   if (!repoName) {
     return (
-      <div className="flex items-center justify-center h-full w-full text-gray-600 text-sm bg-gray-950">
+      <div className="flex items-center justify-center h-full w-full text-gray-600 text-sm bg-[#11111a]">
         No repository active
       </div>
     );
@@ -72,43 +66,36 @@ export function FilePanel({ repoName }: { repoName: string | null }) {
     <div className="flex h-full w-full overflow-hidden">
       {/* Code Viewer (Left side of the right panel) */}
       {selectedFilePath && (
-        <div className="flex-1 flex flex-col min-w-0 border-r border-gray-800 bg-gray-950">
-          <div className="flex items-center justify-between p-2 border-b border-gray-800 bg-gray-900 flex-shrink-0">
-            <span className="text-xs text-gray-300 font-mono truncate mr-2" title={selectedFilePath}>
-              {selectedFilePath.split("/").pop()}
-            </span>
-            <button 
-              onClick={() => setSelectedFilePath(null)}
-              className="text-gray-500 hover:text-white px-2 rounded hover:bg-gray-700"
-            >
-              ✕
-            </button>
-          </div>
-          <div className="flex-1 overflow-auto p-4">
-            {fileLoading && <div className="text-gray-500 text-sm">Loading file...</div>}
-            {!fileLoading && fileContent !== null && (
-              <pre className="text-xs text-gray-300 font-mono whitespace-pre-wrap break-words">
-                {fileContent}
-              </pre>
-            )}
-            {!fileLoading && fileContent === null && (
-              <div className="text-gray-700 text-sm">Error loading file.</div>
-            )}
-          </div>
+        <div className="flex-1 flex flex-col min-w-0 border-r border-gray-800/60 bg-[#0a0a0f] shadow-2xl relative z-10">
+          <CodeEditor 
+            repoName={repoName} 
+            filePath={selectedFilePath} 
+            onClose={() => onSelectFile(null)} 
+          />
         </div>
       )}
 
       {/* File Tree (Right side of the right panel) */}
-      <div className="w-64 flex-shrink-0 flex flex-col bg-gray-900">
-        <div className="p-3 border-b border-gray-800 font-medium text-sm truncate bg-gray-900 flex-shrink-0">
-          <span className="text-gray-500 mr-2">repo</span>
+      <div className={`${selectedFilePath ? "w-64 flex-shrink-0" : "flex-1"} flex flex-col bg-[#11111a]`}>
+        <div className="p-3 border-b border-gray-800/60 font-medium text-xs tracking-wider uppercase text-gray-500 flex-shrink-0 bg-[#0a0a0f]">
+          Explorer
+        </div>
+        
+        <div className="px-3 py-2 text-xs font-semibold text-gray-400 bg-[#11111a] flex-shrink-0 uppercase truncate">
           {repoName}
         </div>
+
         <div className="flex-1 overflow-y-auto p-2">
-          {loading && <div className="text-gray-500 text-sm p-2">Loading tree...</div>}
-          {error && <div className="text-red-400 text-sm p-2">{error}</div>}
-          {tree.map((node) => (
-            <FileTreeNode key={node.path} node={node} onSelectFile={setSelectedFilePath} />
+          {loading && <div className="text-blue-500/70 text-sm p-2 animate-pulse">Loading workspace...</div>}
+          {error && <div className="text-red-500/70 text-sm p-2 bg-red-500/10 rounded">{error}</div>}
+          
+          {!loading && tree.map((node) => (
+            <FileTreeNode 
+              key={node.path} 
+              node={node} 
+              onSelectFile={onSelectFile} 
+              selectedPath={selectedFilePath} 
+            />
           ))}
         </div>
       </div>

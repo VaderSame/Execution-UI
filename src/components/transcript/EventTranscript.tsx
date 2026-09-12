@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { sanitizeLLMContent, parseToolArgs, normalizeFilePath, stripMarkdownFences } from "../../utils/formatters";
+import { ApprovalRequestPanel } from "./ApprovalRequestPanel";
 
 function AgentTurnEntry({ data }: { data: any }) {
   const content = sanitizeLLMContent(data.content);
@@ -49,8 +50,14 @@ function AgentTurnEntry({ data }: { data: any }) {
 }
 
 function ToolResultEntry({ data }: { data: any }) {
-  const isMultiLine = typeof data.result === 'string' && data.result.includes('\n');
-  const cleanedResult = stripMarkdownFences(data.result);
+  let cleanedResult = stripMarkdownFences(data.result || "");
+  
+  // Hide the internal LLM prompt hack from the user
+  if (cleanedResult.includes("CRITICAL SYSTEM INSTRUCTION:")) {
+    cleanedResult = cleanedResult.split("CRITICAL SYSTEM INSTRUCTION:")[0].trim();
+  }
+  
+  const isMultiLine = cleanedResult.includes('\n');
   
   return (
     <div className="mb-6 pl-4 border-l-2 border-gray-800">
@@ -120,18 +127,6 @@ function ExecutionStatusChip({ data }: { data: any }) {
   );
 }
 
-function ApprovalLogEntry({ data }: { data: any }) {
-  return (
-    <div className="mb-6 p-3 bg-yellow-900/10 border border-yellow-900/30 rounded flex items-start">
-      <div className="mt-0.5 text-yellow-600 mr-3">⚠️</div>
-      <div>
-        <div className="text-xs font-semibold text-yellow-600 mb-0.5">Approval Log (Auto-Skipped)</div>
-        <div className="text-sm text-gray-300">Agent requested write to <span className="font-mono text-gray-400 bg-gray-900 px-1 rounded">{normalizeFilePath(data.filepath)}</span></div>
-      </div>
-    </div>
-  );
-}
-
 function JobStatusEntry({ type, data }: { type: string, data: any }) {
   if (type === "job_completed") {
     return <div className="mb-6 text-sm font-semibold text-green-500 flex items-center"><span className="mr-2">✓</span> Job Completed Successfully</div>;
@@ -142,7 +137,7 @@ function JobStatusEntry({ type, data }: { type: string, data: any }) {
   return null;
 }
 
-export function EventTranscript({ events }: { events: StreamEvent[] }) {
+export function EventTranscript({ events, jobId }: { events: StreamEvent[], jobId: string | null }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -194,7 +189,7 @@ export function EventTranscript({ events }: { events: StreamEvent[] }) {
         renderedItems.push(<ToolResultEntry key={i} data={evt.data} />);
         break;
       case "approval_required":
-        renderedItems.push(<ApprovalLogEntry key={i} data={evt.data} />);
+        renderedItems.push(<ApprovalRequestPanel key={i} data={evt.data} jobId={jobId} />);
         break;
       case "job_completed":
       case "job_failed":

@@ -4,13 +4,23 @@ export function AppShell({
   sidebar,
   center,
   rightPanel,
+  isRightExpanded = false,
 }: {
   sidebar: React.ReactNode;
   center: React.ReactNode;
   rightPanel: React.ReactNode;
+  isRightExpanded?: boolean;
 }) {
   const [rightWidth, setRightWidth] = useState(320);
   const isDragging = useRef(false);
+
+  useEffect(() => {
+    if (isRightExpanded) {
+      setRightWidth(Math.max(600, document.body.clientWidth * 0.4));
+    } else {
+      setRightWidth(320);
+    }
+  }, [isRightExpanded]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {

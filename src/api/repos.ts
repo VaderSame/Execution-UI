@@ -11,7 +11,25 @@ export async function getRepoTree(repoName: string): Promise<RepoNode[]> {
   return data.tree;
 }
 
-export async function getRepoFile(repoName: string, path: string): Promise<string> {
-  const data = await fetchApi<{ content: string }>(`/repos/${repoName}/file?path=${encodeURIComponent(path)}`);
-  return data.content;
+export async function createRepoSnapshot(repoName: string): Promise<boolean> {
+  const data = await fetchApi<{ status: string }>(`/repos/${encodeURIComponent(repoName)}/snapshot`, {
+    method: "POST"
+  });
+  return data.status === "success";
+}
+
+export async function getRepoFile(repoName: string, path: string): Promise<{ content: string, original_content: string | null }> {
+  const data = await fetchApi<{ content: string, original_content: string | null }>(`/repos/${repoName}/file?path=${encodeURIComponent(path)}`);
+  return data;
+}
+
+export async function updateRepoFile(repoName: string, path: string, content: string): Promise<boolean> {
+  const data = await fetchApi<{ status: string }>(`/repos/${encodeURIComponent(repoName)}/file?path=${encodeURIComponent(path)}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ content }),
+  });
+  return data.status === "success";
 }

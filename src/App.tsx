@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppShell } from "./components/layout/AppShell";
 import { SessionSidebar } from "./components/layout/SessionSidebar";
 import type { Session } from "./components/layout/SessionSidebar";
@@ -8,6 +8,7 @@ import { RepoPicker } from "./components/RepoPicker";
 import { InstructionBar } from "./components/InstructionBar";
 import { useJobStream } from "./hooks/useJobStream";
 import { createJob } from "./api/jobs";
+import { createRepoSnapshot } from "./api/repos";
 
 export default function App() {
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -16,19 +17,39 @@ export default function App() {
   // New session state
   const [isCreatingNew, setIsCreatingNew] = useState(true);
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
+  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
   
   // Currently active job stream
   const { events, status: streamStatus } = useJobStream(activeSessionId);
   const activeSession = sessions.find(s => s.id === activeSessionId);
 
+  // Trigger file tree refresh when files are written
+  const [fileTreeRefreshTrigger, setFileTreeRefreshTrigger] = useState(0);
+
+  useEffect(() => {
+    if (events.length === 0) return;
+    const lastEvent = events[events.length - 1];
+    
+    // Refresh the file tree when a file write or execution operation finishes
+    if (lastEvent.type === "tool_result" && (lastEvent.data.tool_name === "write_file" || lastEvent.data.tool_name === "submit_for_execution")) {
+      setFileTreeRefreshTrigger(prev => prev + 1);
+    }
+  }, [events]);
+
   const handleNewSessionClick = () => {
     setActiveSessionId(null);
     setIsCreatingNew(true);
     setSelectedRepo(null);
+    setSelectedFilePath(null);
   };
 
-  const handleSelectRepo = (repo: string) => {
+  const handleSelectRepo = async (repo: string) => {
     setSelectedRepo(repo);
+    try {
+      await createRepoSnapshot(repo);
+    } catch (err) {
+      console.error("Failed to create snapshot", err);
+    }
   };
 
   const handleSubmitInstruction = async (instruction: string) => {
@@ -83,7 +104,7 @@ export default function App() {
             <span className="text-xs text-gray-500 uppercase">{streamStatus}</span>
           </div>
         </div>
-        <EventTranscript events={events} />
+        <EventTranscript events={events} jobId={activeSessionId} />
         <InstructionBar onSubmit={() => {}} disabled={true} />
       </div>
     );
@@ -91,6 +112,7 @@ export default function App() {
 
   return (
     <AppShell
+      isRightExpanded={!!selectedFilePath}
       sidebar={
         <SessionSidebar
           sessions={sessions}
@@ -104,7 +126,12 @@ export default function App() {
       }
       center={renderCenter()}
       rightPanel={
-        <FilePanel repoName={isCreatingNew ? selectedRepo : activeSession?.repoName ?? null} />
+        <FilePanel 
+          repoName={isCreatingNew ? selectedRepo : activeSession?.repoName ?? null} 
+          selectedFilePath={selectedFilePath}
+          onSelectFile={setSelectedFilePath}
+          refreshTrigger={fileTreeRefreshTrigger}
+        />
       }
     />
   );
